@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>RainWatch — Global Rainfall Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ─── THEME TOKENS ─────────────────────────────────────── */
+:root{
+  --rain1:#3b82f6;--rain2:#60a5fa;--rain3:#93c5fd;
+  --drop:#bfdbfe;
+}
+[data-theme="dark"]{
+  --bg:#0b1120;--bg2:#111827;--bg3:#1e2d42;
+  --card:#141f30;--card2:#1a2640;
+  --border:rgba(96,165,250,.15);--border2:rgba(96,165,250,.25);
+  --text:#e2eaf4;--text2:#8fa3bf;--text3:#4d6b8a;
+  --accent:#3b82f6;--accent2:#60a5fa;
+  --badge-bg:rgba(59,130,246,.18);--badge-tx:#93c5fd;
+  --search-bg:rgba(255,255,255,.05);
+  --topbar:rgba(11,17,32,.92);
+  --shadow:rgba(0,0,0,.5);
+  --rain-drop:rgba(96,165,250,.6);
+}
+[data-theme="light"]{
+  --bg:#f0f6ff;--bg2:#e4eeff;--bg3:#d5e8ff;
+  --card:#ffffff;--card2:#f7f9ff;
+  --border:rgba(59,130,246,.18);--border2:rgba(59,130,246,.35);
+  --text:#0f2040;--text2:#4a6080;--text3:#8aabcc;
+  --accent:#1d6fd4;--accent2:#2563eb;
+  --badge-bg:rgba(37,99,235,.12);--badge-tx:#1e40af;
+  --search-bg:rgba(0,0,0,.04);
+  --topbar:rgba(240,246,255,.94);
+  --shadow:rgba(30,80,160,.12);
+  --rain-drop:rgba(37,99,235,.5);
+}
+
+/* ─── BASE ─────────────────────────────────────────────── */
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-weight:400;
+  min-height:100vh;overflow-x:hidden;
+  transition:background .35s,color .35s;
+}
+
+/* ─── ANIMATED RAIN BACKGROUND ─────────────────────────── */
+.rain-bg{
+  position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+}
+.raindrop{
+  position:absolute;top:-20px;
+  width:1.5px;border-radius:100px;
+  background:linear-gradient(to bottom,transparent,var(--rain-drop));
+  animation:fall linear infinite;
+  opacity:0;
+}
+@keyframes fall{
+  0%{transform:translateY(0);opacity:0}
+  10%{opacity:1}
+  90%{opacity:.6}
+  100%{transform:translateY(110vh);opacity:0}
+}
+
+/* ─── TOPBAR ──────────────────────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:60px;
+  background:var(--topbar);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  transition:background .35s,border-color .35s;
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+  font-family:'DM Serif Display',serif;font-size:20px;
+  color:var(--text);letter-spacing:.02em;
+  text-decoration:none;
+}
+.logo-icon{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--rain1),var(--rain2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;
+}
+.topbar-right{display:flex;align-items:center;gap:6px}
+
+/* Icon buttons */
+.icon-btn{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:1px solid transparent;
+  color:var(--text2);cursor:pointer;font-size:16px;
+  transition:all .2s;
+  position:relative;
+}
+.icon-btn:hover{
+  background:var(--search-bg);
+  border-color:var(--border);
+  color:var(--text);
+}
+.icon-btn.active{
+  background:var(--badge-bg);
+  border-color:var(--border2);
+  color:var(--accent2);
+}
+
+/* Language dropdown */
+.lang-wrap{position:relative}
+.lang-menu{
+  position:absolute;top:calc(100% + 8px);right:0;
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:12px;padding:6px;min-width:140px;
+  display:none;flex-direction:column;gap:2px;
+  box-shadow:0 8px 32px var(--shadow);z-index:200;
+}
+.lang-menu.open{display:flex}
+.lang-opt{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:8px;
+  cursor:pointer;font-size:13px;color:var(--text2);
+  transition:all .15s;border:none;background:none;width:100%;text-align:left;
+}
+.lang-opt:hover{background:var(--search-bg);color:var(--text)}
+.lang-opt.selected{color:var(--accent2);background:var(--badge-bg)}
+.lang-flag{font-size:15px}
+
+/* Theme toggle */
+.theme-track{
+  width:52px;height:28px;border-radius:100px;
+  position:relative;cursor:pointer;
+  border:1px solid var(--border2);
+  background:var(--card2);
+  transition:all .3s;
+}
+[data-theme="dark"] .theme-track{background:linear-gradient(90deg,#1e3a5f,#2d5a9e)}
+[data-theme="light"] .theme-track{background:linear-gradient(90deg,#fde68a,#fbbf24)}
+.theme-thumb{
+  position:absolute;top:3px;left:3px;
+  width:20px;height:20px;border-radius:50%;
+  background:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:11px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+}
+[data-theme="dark"] .theme-thumb{transform:translateX(24px)}
+
+/* ─── SEARCH BAR ──────────────────────────────────────── */
+.search-section{
+  max-width:780px;margin:36px auto 0;padding:0 20px;
+  position:relative;z-index:10;
+}
+.search-box{
+  display:flex;align-items:center;gap:0;
+  background:var(--card);
+  border:1.5px solid var(--border2);
+  border-radius:16px;overflow:hidden;
+  box-shadow:0 4px 24px var(--shadow);
+  transition:all .25s;
+}
+.search-box:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(59,130,246,.18),0 4px 24px var(--shadow);
+}
+.search-icon{padding:0 14px 0 18px;font-size:17px;color:var(--text3);flex-shrink:0}
+.search-input{
+  flex:1;background:none;border:none;outline:none;
+  padding:15px 0;font-size:15px;font-family:'DM Sans',sans-serif;
+  color:var(--text);
+}
+.search-input::placeholder{color:var(--text3)}
+.search-btn{
+  padding:10px 22px;margin:6px;border-radius:11px;
+  background:linear-gradient(135deg,var(--rain1),var(--rain2));
+  color:#fff;font-size:13px;font-weight:600;
+  border:none;cursor:pointer;white-space:nowrap;
+  transition:transform .15s,box-shadow .15s;
+  font-family:'DM Sans',sans-serif;
+}
+.search-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(59,130,246,.4)}
+.search-suggestions{
+  position:absolute;left:20px;right:20px;top:calc(100% + 6px);
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:14px;overflow:hidden;z-index:200;
+  display:none;box-shadow:0 8px 32px var(--shadow);
+}
+.search-suggestions.open{display:block}
+.sug-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 18px;cursor:pointer;font-size:14px;
+  color:var(--text2);border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.sug-item:last-child{border-bottom:none}
+.sug-item:hover{background:var(--search-bg);color:var(--text)}
+.sug-dot{
+  width:8px;height:8px;border-radius:50%;
+  flex-shrink:0;
+}
+.sug-rain{background:#3b82f6;animation:pulse-dot 1.5s ease-in-out infinite}
+.sug-dry{background:var(--text3)}
+@keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.6}}
+
+/* ─── LAYOUT ─────────────────────────────────────────── */
+.wrap{
+  max-width:1160px;margin:0 auto;
+  padding:32px 20px 80px;
+  position:relative;z-index:1;
+}
+
+/* ─── HERO STATS ─────────────────────────────────────── */
+.hero-stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+  margin-bottom:28px;
+}
+@media(max-width:700px){.hero-stats{grid-template-columns:repeat(2,1fr)}}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:18px 20px;
+  transition:background .35s,border-color .35s;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--gradient-top,linear-gradient(90deg,var(--rain1),var(--rain2)));
+}
+.stat-label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;font-weight:500}
+.stat-value{font-family:'DM Serif Display',serif;font-size:28px;color:var(--text);line-height:1}
+.stat-unit{font-size:12px;color:var(--text2);margin-top:4px}
+.stat-trend{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:11px;margin-top:6px;padding:2px 8px;
+  border-radius:100px;font-weight:600;
+}
+.trend-up{background:rgba(34,197,94,.15);color:#4ade80}
+.trend-dn{background:rgba(239,68,68,.15);color:#f87171}
+
+/* ─── SECTION TITLE ──────────────────────────────────── */
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;
+}
+.section-title{
+  font-family:'DM Serif Display',serif;
+  font-size:19px;color:var(--text);
+}
+.see-all{
+  font-size:12px;color:var(--accent2);cursor:pointer;
+  background:none;border:none;font-family:'DM Sans',sans-serif;
+  padding:4px 10px;border-radius:8px;transition:background .15s;
+}
+.see-all:hover{background:var(--badge-bg)}
+
+/* ─── LIVE RAIN CITIES ───────────────────────────────── */
+.cities-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+  gap:14px;margin-bottom:36px;
+}
+.city-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:18px;cursor:pointer;
+  transition:all .25s;position:relative;overflow:hidden;
+}
+.city-card:hover{
+  border-color:var(--border2);
+  transform:translateY(-2px);
+  box-shadow:0 8px 28px var(--shadow);
+}
+.city-card-inner{position:relative;z-index:1}
+.city-rain-bg{
+  position:absolute;inset:0;opacity:.06;
+  background:radial-gradient(ellipse at 80% 20%,var(--rain2),transparent 70%);
+  pointer-events:none;
+}
+.city-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.city-name{font-size:15px;font-weight:600;color:var(--text)}
+.city-country{font-size:11px;color:var(--text3);margin-top:2px}
+.city-badge{
+  display:flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:100px;
+  font-size:11px;font-weight:600;flex-shrink:0;
+}
+.badge-rain{background:var(--badge-bg);color:var(--badge-tx)}
+.badge-heavy{background:rgba(59,130,246,.3);color:#93c5fd}
+.badge-drizzle{background:rgba(96,165,250,.12);color:#bfdbfe}
+.live-dot{
+  width:6px;height:6px;border-radius:50%;background:#60a5fa;
+  animation:pulse-dot 1.5s ease-in-out infinite;
+  flex-shrink:0;
+}
+.city-mm{
+  font-family:'DM Serif Display',serif;font-size:32px;color:var(--text);line-height:1;
+}
+.city-mm-unit{font-size:12px;color:var(--text2)}
+.city-meta{display:flex;align-items:center;gap:10px;margin-top:8px}
+.city-temp{font-size:13px;color:var(--text2)}
+.city-wind{font-size:12px;color:var(--text3)}
+.mini-bar-wrap{margin-top:10px}
+.mini-bar-label{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px}
+.mini-track{height:4px;background:var(--border);border-radius:100px;overflow:hidden}
+.mini-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--rain1),var(--rain2));transition:width .8s cubic-bezier(.22,1,.36,1)}
+
+/* ─── MAIN GRID (chart + table) ──────────────────────── */
+.main-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:28px}
+@media(max-width:880px){.main-grid{grid-template-columns:1fr}}
+
+.chart-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:22px;
+  transition:background .35s,border-color .35s;
+}
+.chart-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--text);margin-bottom:4px}
+.chart-sub{font-size:12px;color:var(--text3);margin-bottom:18px}
+
+/* ─── STATION TABLE ─────────────────────────────────── */
+.table-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:22px;
+  transition:background .35s,border-color .35s;
+}
+.station-table{width:100%;border-collapse:collapse}
+.station-table th{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--text3);padding:0 0 10px;text-align:left;font-weight:600;
+}
+.station-table th:last-child,.station-table td:last-child{text-align:right}
+.station-table tr{border-top:1px solid var(--border)}
+.station-table td{padding:11px 0;font-size:13px;color:var(--text2)}
+.station-table td:first-child{color:var(--text);font-weight:500}
+.stn-bar{display:flex;align-items:center;gap:8px}
+.stn-fill{height:4px;border-radius:100px;background:linear-gradient(90deg,var(--rain1),var(--rain2))}
+.stn-val{font-size:12px;color:var(--text3);white-space:nowrap}
+
+/* ─── SEARCH RESULT ──────────────────────────────────── */
+.search-result{
+  display:none;
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:18px;padding:26px;margin-bottom:28px;
+  animation:fadeUp .3s ease;
+}
+.search-result.show{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.sr-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.sr-place{font-family:'DM Serif Display',serif;font-size:26px;color:var(--text)}
+.sr-close{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text2);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .15s}
+.sr-close:hover{border-color:var(--border2);color:var(--text)}
+.sr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:500px){.sr-grid{grid-template-columns:repeat(2,1fr)}}
+.sr-stat{background:var(--card2);border-radius:12px;padding:14px 16px}
+.sr-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px}
+.sr-stat-value{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text)}
+.sr-stat-unit{font-size:11px;color:var(--text2)}
+
+/* ─── FOOTER BAR ─────────────────────────────────────── */
+.footer-bar{
+  border-top:1px solid var(--border);
+  padding:20px;text-align:center;
+  font-size:12px;color:var(--text3);
+  position:relative;z-index:1;
+}
+
+/* ─── CHART CANVAS ────────────────────────────────────── */
+.chart-wrap{position:relative;width:100%;height:240px}
+</style>
+</head>
+<body>
+
+<!-- Animated rain -->
+<div class="rain-bg" id="rain-bg"></div>
+
+<!-- ═══════ TOPBAR ═══════ -->
+<nav class="topbar">
+  <a class="logo" href="#">
+    <div class="logo-icon">🌧</div>
+    <span>RainWatch</span>
+  </a>
+
+  <div class="topbar-right">
+    <!-- Language -->
+    <div class="lang-wrap">
+      <button class="icon-btn" id="lang-btn" onclick="toggleLangMenu()" title="Language">
+        <span id="lang-flag">🇬🇧</span>
+      </button>
+      <div class="lang-menu" id="lang-menu">
+        <button class="lang-opt selected" id="opt-en" onclick="setLang('en')">
+          <span class="lang-flag">🇬🇧</span> English
+        </button>
+        <button class="lang-opt" id="opt-zh" onclick="setLang('zh')">
+          <span class="lang-flag">🇨🇳</span> 中文
+        </button>
+        <button class="lang-opt" id="opt-ar" onclick="setLang('ar')">
+          <span class="lang-flag">🇸🇦</span> العربية
+        </button>
+        <button class="lang-opt" id="opt-fr" onclick="setLang('fr')">
+          <span class="lang-flag">🇫🇷</span> Français
+        </button>
+      </div>
+    </div>
+
+    <!-- Theme toggle -->
+    <div class="theme-track" onclick="toggleTheme()" title="Toggle theme">
+      <div class="theme-thumb" id="theme-thumb">🌙</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════ SEARCH ═══════ -->
+<div class="search-section">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="search-input" type="text"
+      placeholder="Search any city or region for rainfall data…"
+      oninput="onSearchInput(this.value)"
+      onkeydown="if(event.key==='Enter') doSearch()"/>
+    <button class="search-btn" onclick="doSearch()" id="search-btn">Search</button>
+  </div>
+  <div class="search-suggestions" id="search-suggestions"></div>
+</div>
+
+<!-- ═══════ MAIN WRAP ═══════ -->
+<div class="wrap">
+
+  <!-- Search result panel -->
+  <div class="search-result" id="search-result">
+    <div class="sr-header">
+      <div>
+        <div class="sr-place" id="sr-place">—</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px" id="sr-meta">—</div>
+      </div>
+      <button class="sr-close" onclick="closeSearch()" id="sr-close-btn">✕ Close</button>
+    </div>
+    <div class="sr-grid">
+      <div class="sr-stat"><div class="sr-stat-label" id="sr-l1">Today</div><div class="sr-stat-value" id="sr-v1">—</div><div class="sr-stat-unit">mm</div></div>
+      <div class="sr-stat"><div class="sr-stat-label" id="sr-l2">Monthly</div><div class="sr-stat-value" id="sr-v2">—</div><div class="sr-stat-unit">mm</div></div>
+      <div class="sr-stat"><div class="sr-stat-label" id="sr-l3">Annual Avg</div><div class="sr-stat-value" id="sr-v3">—</div><div class="sr-stat-unit">mm/yr</div></div>
+      <div class="sr-stat"><div class="sr-stat-label" id="sr-l4">Humidity</div><div class="sr-stat-value" id="sr-v4">—</div><div class="sr-stat-unit">%</div></div>
+      <div class="sr-stat"><div class="sr-stat-label" id="sr-l5">Condition</div><div class="sr-stat-value" id="sr-v5" style="font-size:14px">—</div><div class="sr-stat-unit" id="sr-v5b"></div></div>
+      <div class="sr-stat"><div class="sr-stat-label" id="sr-l6">Wind</div><div class="sr-stat-value" id="sr-v6">—</div><div class="sr-stat-unit">km/h</div></div>
+    </div>
+  </div>
+
+  <!-- Hero stats -->
+  <div class="hero-stats">
+    <div class="stat-card" style="--gradient-top:linear-gradient(90deg,#3b82f6,#60a5fa)">
+      <div class="stat-label" id="st1-label">Cities Raining Now</div>
+      <div class="stat-value" id="st1-val">47</div>
+      <div class="stat-unit" id="st1-unit">monitored worldwide</div>
+      <div class="stat-trend trend-up">↑ +3 from 1h ago</div>
+    </div>
+    <div class="stat-card" style="--gradient-top:linear-gradient(90deg,#0ea5e9,#38bdf8)">
+      <div class="stat-label" id="st2-label">Global Average</div>
+      <div class="stat-value" id="st2-val">14.3</div>
+      <div class="stat-unit" id="st2-unit">mm/day this month</div>
+      <div class="stat-trend trend-dn">↓ −2.1 from last month</div>
+    </div>
+    <div class="stat-card" style="--gradient-top:linear-gradient(90deg,#6366f1,#818cf8)">
+      <div class="stat-label" id="st3-label">Highest Today</div>
+      <div class="stat-value" id="st3-val">89</div>
+      <div class="stat-unit" id="st3-unit">mm — Manaus, Brazil</div>
+      <div class="stat-trend trend-up">↑ Heavy tropical storm</div>
+    </div>
+    <div class="stat-card" style="--gradient-top:linear-gradient(90deg,#0f766e,#14b8a6)">
+      <div class="stat-label" id="st4-label">Active Alerts</div>
+      <div class="stat-value" id="st4-val">12</div>
+      <div class="stat-unit" id="st4-unit">flood warnings issued</div>
+      <div class="stat-trend trend-up">↑ +4 new alerts</div>
+    </div>
+  </div>
+
+  <!-- Live rain cities -->
+  <div class="section-head">
+    <div class="section-title" id="cities-title">🌧 Cities Raining Right Now</div>
+    <button class="see-all" id="see-all-btn">See all →</button>
+  </div>
+  <div class="cities-grid" id="cities-grid"></div>
+
+  <!-- Chart + Table -->
+  <div class="main-grid">
+    <div class="chart-card">
+      <div class="chart-title" id="chart-title">Monthly Rainfall Comparison</div>
+      <div class="chart-sub" id="chart-sub">2024 vs 2023 average — selected stations</div>
+      <div class="chart-wrap"><canvas id="rainfall-chart"></canvas></div>
+    </div>
+
+    <div class="table-card">
+      <div class="chart-title" id="table-title" style="margin-bottom:16px">Station Summary</div>
+      <table class="station-table" id="station-table"></table>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<div class="footer-bar" id="footer-txt">
+  RainWatch — Water Resources Dashboard &nbsp;·&nbsp; Data refreshes every 15 minutes &nbsp;·&nbsp; Built for hydrological research
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════
+const CITIES = [
+  {name:"Tokyo",country:"Japan",flag:"🇯🇵",mm:22,temp:18,wind:14,humidity:84,type:"rain"},
+  {name:"Mumbai",country:"India",flag:"🇮🇳",mm:67,temp:27,wind:22,humidity:95,type:"heavy"},
+  {name:"London",country:"UK",flag:"🇬🇧",mm:8,temp:12,wind:18,humidity:78,type:"drizzle"},
+  {name:"São Paulo",country:"Brazil",flag:"🇧🇷",mm:34,temp:23,wind:11,humidity:88,type:"rain"},
+  {name:"Seattle",country:"USA",flag:"🇺🇸",mm:15,temp:10,wind:20,humidity:82,type:"rain"},
+  {name:"Dublin",country:"Ireland",flag:"🇮🇪",mm:11,temp:11,wind:24,humidity:85,type:"drizzle"},
+  {name:"Lagos",country:"Nigeria",flag:"🇳🇬",mm:48,temp:28,wind:16,humidity:91,type:"heavy"},
+  {name:"Kuala Lumpur",country:"Malaysia",flag:"🇲🇾",mm:52,temp:30,wind:9,humidity:93,type:"heavy"},
+  {name:"Amsterdam",country:"Netherlands",flag:"🇳🇱",mm:9,temp:13,wind:21,humidity:80,type:"drizzle"},
+  {name:"Jakarta",country:"Indonesia",flag:"🇮🇩",mm:44,temp:29,wind:12,humidity:90,type:"rain"},
+  {name:"Vancouver",country:"Canada",flag:"🇨🇦",mm:18,temp:9,wind:17,humidity:79,type:"rain"},
+  {name:"Bangkok",country:"Thailand",flag:"🇹🇭",mm:38,temp:31,wind:10,humidity:87,type:"rain"},
+];
+
+const CITY_DB = {
+  "london":{name:"London",country:"United Kingdom",today:8,monthly:62,annual:640,humidity:78,condition:"Light Rain",wind:18},
+  "tokyo":{name:"Tokyo",country:"Japan",today:22,monthly:148,annual:1530,humidity:84,condition:"Moderate Rain",wind:14},
+  "mumbai":{name:"Mumbai",country:"India",today:67,monthly:614,annual:2166,humidity:95,condition:"Heavy Rain",wind:22},
+  "seattle":{name:"Seattle",country:"USA",today:15,monthly:95,annual:940,humidity:82,condition:"Rain",wind:20},
+  "dubai":{name:"Dubai",country:"UAE",today:0,monthly:1,annual:90,humidity:55,condition:"Clear",wind:11},
+  "paris":{name:"Paris",country:"France",today:5,monthly:58,annual:637,humidity:72,condition:"Drizzle",wind:16},
+  "beijing":{name:"Beijing",country:"China",today:3,monthly:18,annual:530,humidity:61,condition:"Light Rain",wind:13},
+  "sydney":{name:"Sydney",country:"Australia",today:12,monthly:102,annual:1140,humidity:76,condition:"Rain",wind:19},
+  "cairo":{name:"Cairo",country:"Egypt",today:0,monthly:0,annual:22,humidity:40,condition:"Sunny",wind:8},
+  "amsterdam":{name:"Amsterdam",country:"Netherlands",today:9,monthly:72,annual:820,humidity:80,condition:"Drizzle",wind:21},
+  "new york":{name:"New York",country:"USA",today:7,monthly:104,annual:1173,humidity:68,condition:"Overcast",wind:17},
+  "berlin":{name:"Berlin",country:"Germany",today:6,monthly:54,annual:590,humidity:74,condition:"Light Rain",wind:15},
+  "jakarta":{name:"Jakarta",country:"Indonesia",today:44,monthly:349,annual:1755,humidity:90,condition:"Heavy Rain",wind:12},
+  "lagos":{name:"Lagos",country:"Nigeria",today:48,monthly:267,annual:1584,humidity:91,condition:"Thunderstorm",wind:16},
+  "singapore":{name:"Singapore",country:"Singapore",today:31,monthly:228,annual:2165,humidity:88,condition:"Rain",wind:11},
+  "karachi":{name:"Karachi",country:"Pakistan",today:2,monthly:8,annual:196,humidity:65,condition:"Partly Cloudy",wind:14},
+  "manaus":{name:"Manaus",country:"Brazil",today:89,monthly:263,annual:2431,humidity:97,condition:"Tropical Storm",wind:9},
+};
+
+const SUGGESTIONS = [
+  {city:"London",rain:true},{city:"Tokyo",rain:true},{city:"Mumbai",rain:true},
+  {city:"Seattle",rain:true},{city:"Paris",rain:false},{city:"Dubai",rain:false},
+  {city:"Sydney",rain:true},{city:"Berlin",rain:true},{city:"Singapore",rain:true},
+  {city:"Cairo",rain:false},{city:"Manaus",rain:true},{city:"Jakarta",rain:true},
+];
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const CHART_2024 = [45,52,68,82,95,114,87,91,76,58,43,61];
+const CHART_2023 = [38,49,72,78,88,108,82,95,70,52,38,55];
+
+// ═══════════════════════════════════════════════════════
+//  TRANSLATIONS
+// ═══════════════════════════════════════════════════════
+const T = {
+  en:{
+    searchPh:"Search any city or region for rainfall data…",
+    searchBtn:"Search",
+    citiesTitle:"🌧 Cities Raining Right Now",
+    seeAll:"See all →",
+    chartTitle:"Monthly Rainfall Comparison",
+    chartSub:"2024 vs 2023 average — selected stations",
+    tableTitle:"Station Summary",
+    st1:"Cities Raining Now",st2:"Global Average",st3:"Highest Today",st4:"Active Alerts",
+    st1u:"monitored worldwide",st2u:"mm/day this month",st3u:"mm — Manaus, Brazil",st4u:"flood warnings issued",
+    srClose:"✕ Close",
+    srL:["Today","Monthly","Annual Avg","Humidity","Condition","Wind"],
+    footer:"RainWatch — Water Resources Dashboard · Data refreshes every 15 minutes · Built for hydrological research",
+    mm:"mm",wind:"km/h",temp:"°C",th:["Station","Total","Avg/Day","Days"],
+  },
+  zh:{
+    searchPh:"搜索全球任意城市或地区的降雨数据…",
+    searchBtn:"搜索",
+    citiesTitle:"🌧 正在降雨的城市",
+    seeAll:"查看全部 →",
+    chartTitle:"月降雨量对比",
+    chartSub:"2024年与2023年平均值对比",
+    tableTitle:"监测站摘要",
+    st1:"当前降雨城市",st2:"全球平均",st3:"今日最高",st4:"活跃预警",
+    st1u:"全球监测中",st2u:"毫米/天（本月）",st3u:"毫米 — 玛瑙斯，巴西",st4u:"洪水警告",
+    srClose:"✕ 关闭",
+    srL:["今日","本月","年均","湿度","状态","风速"],
+    footer:"RainWatch — 水资源仪表盘 · 数据每15分钟更新 · 为水文研究构建",
+    mm:"毫米",wind:"千米/时",temp:"°C",th:["站点","总量","日均","天数"],
+  },
+  ar:{
+    searchPh:"ابحث عن أي مدينة أو منطقة للحصول على بيانات الأمطار…",
+    searchBtn:"بحث",
+    citiesTitle:"🌧 المدن الممطرة الآن",
+    seeAll:"عرض الكل →",
+    chartTitle:"مقارنة هطول الأمطار الشهرية",
+    chartSub:"متوسط 2024 مقابل 2023",
+    tableTitle:"ملخص المحطات",
+    st1:"مدن تمطر الآن",st2:"المتوسط العالمي",st3:"الأعلى اليوم",st4:"التنبيهات النشطة",
+    st1u:"مراقبة عالمياً",st2u:"ملم/يوم هذا الشهر",st3u:"ملم — ماناوس، البرازيل",st4u:"تحذيرات فيضان",
+    srClose:"✕ إغلاق",
+    srL:["اليوم","الشهر","متوسط سنوي","رطوبة","الحالة","الرياح"],
+    footer:"RainWatch — لوحة موارد المياه · البيانات تتحدث كل 15 دقيقة",
+    mm:"ملم",wind:"كم/ساعة",temp:"°م",th:["محطة","الإجمالي","يومي","أيام"],
+  },
+  fr:{
+    searchPh:"Rechercher des données pluviométriques pour n'importe quelle ville…",
+    searchBtn:"Rechercher",
+    citiesTitle:"🌧 Villes sous la pluie en ce moment",
+    seeAll:"Voir tout →",
+    chartTitle:"Comparaison des précipitations mensuelles",
+    chartSub:"Moyenne 2024 vs 2023 — stations sélectionnées",
+    tableTitle:"Résumé des stations",
+    st1:"Villes sous la pluie",st2:"Moyenne mondiale",st3:"Maximum aujourd'hui",st4:"Alertes actives",
+    st1u:"surveillées mondialement",st2u:"mm/jour ce mois",st3u:"mm — Manaus, Brésil",st4u:"alertes inondation",
+    srClose:"✕ Fermer",
+    srL:["Aujourd'hui","Mensuel","Moy. annuelle","Humidité","Condition","Vent"],
+    footer:"RainWatch — Tableau de bord des ressources en eau · Données actualisées toutes les 15 minutes",
+    mm:"mm",wind:"km/h",temp:"°C",th:["Station","Total","Moy/Jour","Jours"],
+  },
+};
+
+const STATIONS = [
+  {name:"Station A",total:241,avg:11.5,days:6},
+  {name:"Station B",total:228,avg:10.9,days:5},
+  {name:"Station C",total:267,avg:12.7,days:6},
+  {name:"Station D",total:195,avg:9.3,days:5},
+  {name:"Station E",total:312,avg:14.9,days:7},
+];
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let lang  = 'en';
+let theme = 'dark';
+let chart = null;
+
+// ═══════════════════════════════════════════════════════
+//  RAIN ANIMATION
+// ═══════════════════════════════════════════════════════
+(function spawnRain(){
+  const bg = document.getElementById('rain-bg');
+  for(let i=0;i<55;i++){
+    const d = document.createElement('div');
+    d.className='raindrop';
+    const h = 12+Math.random()*22;
+    d.style.cssText=`
+      left:${Math.random()*100}%;
+      height:${h}px;
+      animation-duration:${0.7+Math.random()*1.4}s;
+      animation-delay:-${Math.random()*2}s;
+      opacity:0;
+    `;
+    bg.appendChild(d);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════
+//  RENDER FUNCTIONS
+// ═══════════════════════════════════════════════════════
+function renderCities(){
+  const t = T[lang];
+  const grid = document.getElementById('cities-grid');
+  const maxMm = Math.max(...CITIES.map(c=>c.mm));
+  grid.innerHTML = CITIES.map(c=>{
+    const badgeClass = c.type==='heavy'?'badge-heavy':c.type==='drizzle'?'badge-drizzle':'badge-rain';
+    const badgeLabel = c.type==='heavy'?'Heavy Rain':c.type==='drizzle'?'Drizzle':'Rain';
+    const pct = Math.round(c.mm/maxMm*100);
+    return `
+      <div class="city-card" onclick="searchCity('${c.name.toLowerCase()}')">
+        <div class="city-rain-bg"></div>
+        <div class="city-card-inner">
+          <div class="city-top">
+            <div>
+              <div class="city-name">${c.flag} ${c.name}</div>
+              <div class="city-country">${c.country}</div>
+            </div>
+            <div class="city-badge ${badgeClass}">
+              <div class="live-dot"></div>
+              ${badgeLabel}
+            </div>
+          </div>
+          <div class="city-mm">${c.mm}<span class="city-mm-unit"> ${t.mm}</span></div>
+          <div class="city-meta">
+            <span class="city-temp">${c.temp}${t.temp}</span>
+            <span class="city-wind">💨 ${c.wind} ${t.wind}</span>
+            <span class="city-wind">💧 ${c.humidity}%</span>
+          </div>
+          <div class="mini-bar-wrap">
+            <div class="mini-bar-label">
+              <span>0</span><span>${maxMm} ${t.mm}</span>
+            </div>
+            <div class="mini-track">
+              <div class="mini-fill" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderTable(){
+  const t = T[lang];
+  const maxTotal = Math.max(...STATIONS.map(s=>s.total));
+  const th = t.th;
+  document.getElementById('station-table').innerHTML = `
+    <thead>
+      <tr>
+        <th>${th[0]}</th>
+        <th>${th[1]} (mm)</th>
+        <th>${th[2]} (mm)</th>
+        <th>${th[3]}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${STATIONS.map(s=>`
+        <tr>
+          <td>${s.name}</td>
+          <td>
+            <div class="stn-bar">
+              <div class="stn-fill" style="width:${Math.round(s.total/maxTotal*80)}px"></div>
+              <span class="stn-val">${s.total}</span>
+            </div>
+          </td>
+          <td>${s.avg.toFixed(1)}</td>
+          <td>${s.days}</td>
+        </tr>`).join('')}
+    </tbody>`;
+}
+
+function renderChart(){
+  const t = T[lang];
+  const ctx = document.getElementById('rainfall-chart').getContext('2d');
+  const isDark = theme === 'dark';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const tickColor = isDark ? '#4d6b8a' : '#8aabcc';
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: MONTHS,
+      datasets:[
+        {
+          label:'2024',
+          data: CHART_2024,
+          backgroundColor:'rgba(59,130,246,0.75)',
+          borderRadius:5,
+          barPercentage:.5,
+        },
+        {
+          label:'2023',
+          data: CHART_2023,
+          backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
+          borderRadius:5,
+          barPercentage:.5,
+        }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor: isDark ? '#1e2d42' : '#fff',
+          titleColor: isDark ? '#e2eaf4' : '#0f2040',
+          bodyColor: isDark ? '#8fa3bf' : '#4a6080',
+          borderColor: isDark ? 'rgba(96,165,250,.3)' : 'rgba(59,130,246,.2)',
+          borderWidth:1, padding:10, cornerRadius:10,
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y} mm`}
+        }
+      },
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:11}}},
+        y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:11},callback:v=>v+' mm'}}
+      }
+    }
+  });
+  // Custom legend
+  const legendEl = document.getElementById('chart-legend');
+  if(legendEl){
+    legendEl.innerHTML=`
+      <span style="display:flex;align-items:center;gap:4px">
+        <span style="width:10px;height:10px;border-radius:2px;background:#3b82f6;display:inline-block"></span>
+        2024
+      </span>
+      <span style="display:flex;align-items:center;gap:4px">
+        <span style="width:10px;height:10px;border-radius:2px;background:${isDark?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)'};display:inline-block"></span>
+        2023
+      </span>`;
+  }
+}
+
+function applyLang(){
+  const t = T[lang];
+  document.getElementById('search-input').placeholder = t.searchPh;
+  document.getElementById('search-btn').textContent   = t.searchBtn;
+  document.getElementById('cities-title').textContent = t.citiesTitle;
+  document.getElementById('see-all-btn').textContent  = t.seeAll;
+  document.getElementById('chart-title').textContent  = t.chartTitle;
+  document.getElementById('chart-sub').textContent    = t.chartSub;
+  document.getElementById('table-title').textContent  = t.tableTitle;
+  document.getElementById('st1-label').textContent    = t.st1;
+  document.getElementById('st2-label').textContent    = t.st2;
+  document.getElementById('st3-label').textContent    = t.st3;
+  document.getElementById('st4-label').textContent    = t.st4;
+  document.getElementById('st1-unit').textContent     = t.st1u;
+  document.getElementById('st2-unit').textContent     = t.st2u;
+  document.getElementById('st3-unit').textContent     = t.st3u;
+  document.getElementById('st4-unit').textContent     = t.st4u;
+  document.getElementById('sr-close-btn').textContent = t.srClose;
+  document.getElementById('footer-txt').textContent   = t.footer;
+  // Search result labels
+  t.srL.forEach((l,i)=>{const el=document.getElementById('sr-l'+(i+1));if(el)el.textContent=l;});
+  renderCities();
+  renderTable();
+  renderChart();
+  document.documentElement.setAttribute('lang', lang==='ar'?'ar':'en');
+  document.body.style.direction = lang==='ar' ? 'rtl' : 'ltr';
+}
+
+// ═══════════════════════════════════════════════════════
+//  THEME
+// ═══════════════════════════════════════════════════════
+function toggleTheme(){
+  theme = theme==='dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-thumb').textContent = theme==='dark' ? '🌙' : '☀️';
+  renderChart();
+}
+
+// ═══════════════════════════════════════════════════════
+//  LANGUAGE
+// ═══════════════════════════════════════════════════════
+const LANG_FLAGS = {en:'🇬🇧',zh:'🇨🇳',ar:'🇸🇦',fr:'🇫🇷'};
+function setLang(l){
+  lang = l;
+  document.getElementById('lang-flag').textContent = LANG_FLAGS[l];
+  ['en','zh','ar','fr'].forEach(x=>{
+    document.getElementById('opt-'+x).classList.toggle('selected', x===l);
+  });
+  document.getElementById('lang-menu').classList.remove('open');
+  applyLang();
+}
+function toggleLangMenu(){
+  document.getElementById('lang-menu').classList.toggle('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.lang-wrap'))
+    document.getElementById('lang-menu').classList.remove('open');
+});
+
+// ═══════════════════════════════════════════════════════
+//  SEARCH
+// ═══════════════════════════════════════════════════════
+function onSearchInput(val){
+  const sug = document.getElementById('search-suggestions');
+  if(!val.trim()){sug.classList.remove('open');return;}
+  const q = val.toLowerCase();
+  const filtered = SUGGESTIONS.filter(s=>s.city.toLowerCase().includes(q));
+  const extra = Object.keys(CITY_DB).filter(k=>k.includes(q) && !filtered.find(f=>f.city.toLowerCase()===k));
+  const all = [
+    ...filtered,
+    ...extra.map(k=>({city:CITY_DB[k].name, rain:CITY_DB[k].today>0}))
+  ].slice(0,6);
+  if(!all.length){sug.classList.remove('open');return;}
+  sug.innerHTML = all.map(s=>`
+    <div class="sug-item" onclick="searchCity('${s.city.toLowerCase()}')">
+      <div class="sug-dot ${s.rain?'sug-rain':'sug-dry'}"></div>
+      ${s.city}
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${s.rain?'Raining ☔':'Dry ☀️'}</span>
+    </div>`).join('');
+  sug.classList.add('open');
+}
+
+function doSearch(){
+  const val = document.getElementById('search-input').value.trim();
+  if(val) searchCity(val.toLowerCase());
+  document.getElementById('search-suggestions').classList.remove('open');
+}
+
+function searchCity(key){
+  const data = CITY_DB[key] || CITY_DB[Object.keys(CITY_DB).find(k=>k.includes(key))];
+  const t = T[lang];
+  if(!data){
+    // Simulate unknown city
+    const fake = {
+      name:key.split(' ').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '),
+      country:"Global Station",
+      today:Math.round(Math.random()*40),
+      monthly:Math.round(30+Math.random()*150),
+      annual:Math.round(400+Math.random()*1800),
+      humidity:Math.round(55+Math.random()*40),
+      condition:"Partly Cloudy",
+      wind:Math.round(8+Math.random()*25)
+    };
+    showResult(fake);
+  } else {
+    showResult(data);
+  }
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-suggestions').classList.remove('open');
+}
+
+function showResult(d){
+  document.getElementById('sr-place').textContent = d.name;
+  document.getElementById('sr-meta').textContent  = d.country + ' · ' + new Date().toLocaleDateString();
+  document.getElementById('sr-v1').textContent = d.today;
+  document.getElementById('sr-v2').textContent = d.monthly;
+  document.getElementById('sr-v3').textContent = d.annual;
+  document.getElementById('sr-v4').textContent = d.humidity;
+  document.getElementById('sr-v5').textContent = d.condition;
+  document.getElementById('sr-v6').textContent = d.wind;
+  document.getElementById('search-result').classList.add('show');
+  document.getElementById('search-result').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeSearch(){
+  document.getElementById('search-result').classList.remove('show');
+}
+
+// Add legend container after chart sub
+document.querySelector('.chart-sub').insertAdjacentHTML('afterend',
+  '<div id="chart-legend" style="display:flex;gap:16px;font-size:12px;color:var(--text2);margin-bottom:12px"></div>');
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+applyLang();
+</script>
+</body>
+</html>

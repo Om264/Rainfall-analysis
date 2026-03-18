@@ -1,0 +1,39 @@
+# ============================================================
+#  RainWatch — Python Requirements
+#  Install with:  pip install -r requirements.txt
+# ============================================================
+
+# ── Core data analysis ───────────────────────────────────────
+# pandas  — tabular data loading, groupby, aggregation, date parsing
+pandas>=2.0.0
+
+# numpy   — numerical operations (pulled in by pandas, listed explicitly
+#           for clarity and to ensure a compatible version is pinned)
+numpy>=1.24.0
+
+# ── Date/time utilities (pandas dependency, listed for transparency) ─────────
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# ── Standard-library modules used (no installation needed) ──────────────────
+#   csv        — built-in CSV reader/writer
+#   os         — file path operations
+#   datetime   — date.today() for the report header
+#
+# These are included in every Python 3.x installation and do NOT
+# need to be listed here — documented only for student reference.
+
+# ── Optional: for extended analysis or notebook use ─────────────────────────
+# Uncomment the lines below if you want to extend the script with
+# plotting, statistical modelling, or Jupyter notebook support.
+
+# matplotlib>=3.7.0       # static plots (bar charts, hydrographs)
+# seaborn>=0.12.0         # statistical visualisation on top of matplotlib
+# scipy>=1.11.0           # frequency analysis, return period estimation
+# statsmodels>=0.14.0     # regression and time-series models
+# jupyter>=1.0.0          # run the analysis in a notebook environment
+# openpyxl>=3.1.0         # read/write Excel (.xlsx) files with pandas
+
+# ── Development / testing (optional) ────────────────────────────────────────
+# pytest>=7.4.0           # unit testing
+# black>=23.0.0           # code formatter
